@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Editor PDF fijo</title>
+
+<style>
+body {
+  font-family: Arial, sans-serif;
+  background: #f2f2f2;
+  padding: 20px;
+}
+
+#pdf-container {
+  position: relative;
+  width: 800px;
+  margin: auto;
+  background: white;
+}
+
+canvas {
+  width: 100%;
+  border: 1px solid #ccc;
+}
+
+/* CAMPOS EDITABLES */
+.field {
+  position: absolute;
+  min-width: 120px;
+  padding: 2px 4px;
+  border: 1px dashed #007bff;
+  background: rgba(255,255,255,0.7);
+  cursor: text;
+  outline: none;
+  font-family: Helvetica;
+  font-size: 12px;
+}
+
+.field.bold {
+  font-weight: bold;
+}
+
+button {
+  margin: 20px auto;
+  display: block;
+  padding: 10px 20px;
+  font-size: 16px;
+}
+</style>
+</head>
+
+<body>
+
+<h2 style="text-align:center">Editor de PDF con campos fijos</h2>
+
+<div id="pdf-container">
+  <canvas id="pdf-canvas"></canvas>
+
+  <!-- CAMPOS EDITABLES -->
+  <div class="field"
+       contenteditable="true"
+       data-x="120"
+       data-y="220"
+       data-size="12"
+       data-bold="false">
+       Nombre Cliente
+  </div>
+
+  <div class="field bold"
+       contenteditable="true"
+       data-x="120"
+       data-y="260"
+       data-size="14"
+       data-bold="true">
+       $ 0,00
+  </div>
+
+  <div class="field"
+       contenteditable="true"
+       data-x="120"
+       data-y="300"
+       data-size="11"
+       data-bold="false">
+       Fecha
+  </div>
+</div>
+
+<button onclick="exportPDF()">Descargar PDF</button>
+
+<!-- LIBRERÍAS -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://unpkg.com/pdf-lib/dist/pdf-lib.min.js"></script>
+
+<script>
+const url = 'PRO.pdf';
+const canvas = document.getElementById('pdf-canvas');
+const ctx = canvas.getContext('2d');
+
+let scale = 1.5;
+
+// RENDER PDF
+pdfjsLib.getDocument(url).promise.then(pdf => {
+  pdf.getPage(1).then(page => {
+    const viewport = page.getViewport({ scale });
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+
+    page.render({
+      canvasContext: ctx,
+      viewport
+    });
+
+    document.querySelectorAll('.field').forEach(f => {
+      f.style.left = f.dataset.x + 'px';
+      f.style.top = f.dataset.y + 'px';
+      f.style.fontSize = f.dataset.size + 'px';
+    });
+  });
+});
+
+// EXPORTAR PDF FINAL
+async function exportPDF() {
+  const existingPdfBytes = await fetch(url).then(res => res.arrayBuffer());
+  const pdfDoc = await PDFLib.PDFDocument.load(existingPdfBytes);
+  const page = pdfDoc.getPages()[0];
+
+  document.querySelectorAll('.field').forEach(field => {
+    const text = field.innerText;
+    const x = parseFloat(field.dataset.x);
+    const y = page.getHeight() - parseFloat(field.dataset.y) - 15;
+    const size = parseInt(field.dataset.size);
+    const bold = field.dataset.bold === "true";
+
+    page.drawText(text, {
+      x: x,
+      y: y,
+      size: size,
+      font: bold ? undefined : undefined
+    });
+  });
+
+  const pdfBytes = await pdfDoc.save();
+  const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = 'PDF_editado.pdf';
+  link.click();
+}
+</script>
+
+</body>
+</html>
